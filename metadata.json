@@ -1,0 +1,8 @@
+{
+  "name": "Copy of Roteirizador Inteligente Express",
+  "description": "App de entrega ultra-rápido que organiza endereços por foto ou texto, otimizando a rota do ponto atual até o mais distante com integração direta ao Waze.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
