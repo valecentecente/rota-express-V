@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { extractAddressFromImage, searchAddresses, AddressCandidate } from './services/geminiService';
 import { DeliveryLocation, UserLocation } from './types';
@@ -90,19 +91,15 @@ const App: React.FC = () => {
       return;
     }
     setStops(prev => {
-      // Ordena por distância e atribui o número de ordem fixo
       const sorted = [...prev].sort((a, b) => {
-        // Se ambos estiverem pendentes, ordena por distância
         if (a.status === 'pending' && b.status === 'pending') {
           return calculateDistance(origin, a) - calculateDistance(origin, b);
         }
-        // Se um estiver completo, vai para o final
         if (a.status === 'completed' && b.status !== 'completed') return 1;
         if (b.status === 'completed' && a.status !== 'completed') return -1;
         return 0;
       });
 
-      // Atualiza o 'order' baseado na nova sequência otimizada
       return sorted.map((s, idx) => ({ ...s, order: idx + 1 }));
     });
   }, [originLocation, currentLocation]);
@@ -110,11 +107,8 @@ const App: React.FC = () => {
   const toggleStopStatus = (id: string) => {
     setStops(prev => {
       const updated = prev.map(s => s.id === id ? { ...s, status: s.status === 'pending' ? 'completed' : 'pending' } : s);
-      
-      // Organiza a visualização: primeiro pendentes por ordem, depois completos por ordem
       const pending = updated.filter(s => s.status === 'pending').sort((a, b) => a.order - b.order);
       const completed = updated.filter(s => s.status === 'completed').sort((a, b) => a.order - b.order);
-      
       return [...pending, ...completed];
     });
   };
@@ -225,6 +219,13 @@ const App: React.FC = () => {
     setIsCapturing(false);
   };
 
+  const clearStops = () => {
+    if (stops.length === 0) return;
+    if (window.confirm(`Deseja apagar todos os ${stops.length} endereços da lista?`)) {
+      setStops([]);
+    }
+  };
+
   const clearAllData = () => {
     if (window.confirm("Deseja limpar todos os dados e reiniciar o app?")) {
       setStops([]);
@@ -248,10 +249,17 @@ const App: React.FC = () => {
       <header className="p-6 pt-10">
         <div className="bg-indigo-600/90 backdrop-blur-xl p-6 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 flex gap-2">
-            <button onClick={clearAllData} className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md">
+            <button 
+              onClick={clearStops} 
+              className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all ${stops.length > 0 ? 'bg-red-500/20 text-red-200' : 'bg-white/5 text-white/20 cursor-not-allowed'}`}
+              title="Limpar Lista de Endereços"
+            >
+              <TrashIcon className="w-5 h-5" />
+            </button>
+            <button onClick={clearAllData} className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md" title="Reiniciar App">
               <ArrowRightOnRectangleIcon className="w-5 h-5 text-white" />
             </button>
-            <button onClick={sortStops} className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+            <button onClick={sortStops} className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform" title="Otimizar Rota">
               <ArrowPathIcon className="w-5 h-5 text-indigo-600" />
             </button>
           </div>
