@@ -47,11 +47,12 @@ const App: React.FC = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Inicialização e GPS
   useEffect(() => {
-    const savedStops = localStorage.getItem('delivery_stops_v6');
+    const savedStops = localStorage.getItem('delivery_stops_v7');
     if (savedStops) setStops(JSON.parse(savedStops));
 
-    const savedOrigin = localStorage.getItem('delivery_origin_v6');
+    const savedOrigin = localStorage.getItem('delivery_origin_v7');
     if (savedOrigin) setOriginLocation(JSON.parse(savedOrigin));
 
     const watchId = navigator.geolocation.watchPosition(
@@ -64,15 +65,16 @@ const App: React.FC = () => {
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
 
+  // Persistência
   useEffect(() => {
-    localStorage.setItem('delivery_stops_v6', JSON.stringify(stops));
+    localStorage.setItem('delivery_stops_v7', JSON.stringify(stops));
   }, [stops]);
 
   useEffect(() => {
     if (originLocation) {
-      localStorage.setItem('delivery_origin_v6', JSON.stringify(originLocation));
+      localStorage.setItem('delivery_origin_v7', JSON.stringify(originLocation));
     } else {
-      localStorage.removeItem('delivery_origin_v6');
+      localStorage.removeItem('delivery_origin_v7');
     }
   }, [originLocation]);
 
@@ -84,6 +86,7 @@ const App: React.FC = () => {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   };
 
+  // Otimização de Rota com Numeração Fixa
   const sortStops = useCallback(() => {
     const origin = originLocation || currentLocation;
     if (!origin) {
@@ -91,24 +94,32 @@ const App: React.FC = () => {
       return;
     }
     setStops(prev => {
-      const sorted = [...prev].sort((a, b) => {
-        if (a.status === 'pending' && b.status === 'pending') {
-          return calculateDistance(origin, a) - calculateDistance(origin, b);
-        }
-        if (a.status === 'completed' && b.status !== 'completed') return 1;
-        if (b.status === 'completed' && a.status !== 'completed') return -1;
-        return 0;
+      // Ordena por distância do ponto de origem
+      const sortedByDistance = [...prev].sort((a, b) => {
+        return calculateDistance(origin, a) - calculateDistance(origin, b);
       });
 
-      return sorted.map((s, idx) => ({ ...s, order: idx + 1 }));
+      // Atribui números fixos de 1 a N com base na distância atual
+      const withNewOrder = sortedByDistance.map((s, idx) => ({ 
+        ...s, 
+        order: idx + 1,
+        status: 'pending' as const // Resetamos status ao re-otimizar se desejar, ou mantém
+      }));
+
+      return withNewOrder;
     });
   }, [originLocation, currentLocation]);
 
+  // Alternar Status (Tick) - Mantém número e volta ao lugar
   const toggleStopStatus = (id: string) => {
     setStops(prev => {
       const updated = prev.map(s => s.id === id ? { ...s, status: s.status === 'pending' ? 'completed' : 'pending' } : s);
+      
+      // Separar as listas
       const pending = updated.filter(s => s.status === 'pending').sort((a, b) => a.order - b.order);
       const completed = updated.filter(s => s.status === 'completed').sort((a, b) => a.order - b.order);
+      
+      // Retorna pendentes primeiro (na ordem original) e completados depois (na ordem original)
       return [...pending, ...completed];
     });
   };
@@ -221,7 +232,7 @@ const App: React.FC = () => {
 
   const clearStops = () => {
     if (stops.length === 0) return;
-    if (window.confirm(`Deseja apagar todos os ${stops.length} endereços da lista?`)) {
+    if (window.confirm(`ATENÇÃO: Deseja apagar TODOS os ${stops.length} endereços da lista?`)) {
       setStops([]);
     }
   };
@@ -251,15 +262,15 @@ const App: React.FC = () => {
           <div className="absolute top-0 right-0 p-4 flex gap-2">
             <button 
               onClick={clearStops} 
-              className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all ${stops.length > 0 ? 'bg-red-500/20 text-red-200' : 'bg-white/5 text-white/20 cursor-not-allowed'}`}
-              title="Limpar Lista de Endereços"
+              className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-all ${stops.length > 0 ? 'bg-red-500 text-white shadow-lg' : 'bg-white/5 text-white/20'}`}
+              title="Limpar Lista"
             >
               <TrashIcon className="w-5 h-5" />
             </button>
-            <button onClick={clearAllData} className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md" title="Reiniciar App">
+            <button onClick={clearAllData} className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md">
               <ArrowRightOnRectangleIcon className="w-5 h-5 text-white" />
             </button>
-            <button onClick={sortStops} className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform" title="Otimizar Rota">
+            <button onClick={sortStops} className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform">
               <ArrowPathIcon className="w-5 h-5 text-indigo-600" />
             </button>
           </div>
@@ -318,7 +329,7 @@ const App: React.FC = () => {
                   <div className="flex items-center gap-1">
                     <button 
                       onClick={() => toggleStopStatus(stop.id)} 
-                      className={`p-2.5 rounded-xl transition-colors ${stop.status === 'completed' ? 'text-green-500 bg-green-500/10' : 'text-slate-500 bg-slate-800/50 hover:bg-slate-700'}`}
+                      className={`p-2.5 rounded-xl transition-colors ${stop.status === 'completed' ? 'text-green-500 bg-green-500/20' : 'text-slate-500 bg-slate-800/50 hover:bg-slate-700'}`}
                     >
                       <CheckCircleIcon className="w-5 h-5" />
                     </button>
@@ -354,7 +365,6 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-[#1e293b] w-full max-w-md rounded-t-[2.5rem] p-6 pb-10 border-t border-indigo-500/20 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
             <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-6 opacity-50" />
-            
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-black text-white uppercase text-[10px] tracking-widest opacity-60 ml-2">
                 {showEditModal ? 'Editar Local' : (selectionTarget === 'origin' ? 'Ponto Inicial' : 'Novo Destino')}
@@ -363,33 +373,14 @@ const App: React.FC = () => {
                 <XMarkIcon className="w-5 h-5"/>
               </button>
             </div>
-
             <form onSubmit={showEditModal ? handleEditSubmit : handleManualSearch} className="space-y-4">
               <div className="relative">
-                 <input 
-                  autoFocus 
-                  type="text" 
-                  placeholder="Endereço Completo..." 
-                  className="w-full p-4 pl-12 bg-slate-900/80 rounded-2xl outline-none border border-slate-700 text-sm font-bold text-white focus:border-indigo-500 transition-all" 
-                  value={showEditModal ? editInput : manualInput} 
-                  onChange={e => showEditModal ? setEditInput(e.target.value) : setManualInput(e.target.value)} 
-                />
+                 <input autoFocus type="text" placeholder="Endereço Completo..." className="w-full p-4 pl-12 bg-slate-900/80 rounded-2xl outline-none border border-slate-700 text-sm font-bold text-white focus:border-indigo-500 transition-all" value={showEditModal ? editInput : manualInput} onChange={e => showEditModal ? setEditInput(e.target.value) : setManualInput(e.target.value)} />
                 <MapPinIcon className="w-5 h-5 text-indigo-500 absolute left-4 top-1/2 -translate-y-1/2 opacity-50" />
               </div>
-
               <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg active:scale-[0.98] transition-all flex items-center justify-center gap-2">
                 {isLoading ? <ArrowPathIcon className="w-5 h-5 animate-spin"/> : "Confirmar Local"}
               </button>
-              
-              {selectionTarget === 'origin' && !showEditModal && (
-                <button 
-                  type="button" 
-                  onClick={() => { setOriginLocation(null); setShowManual(false); }} 
-                  className="w-full py-3 text-indigo-400 text-[10px] font-black uppercase tracking-widest opacity-70 hover:opacity-100 transition-opacity"
-                >
-                  Usar Localização GPS
-                </button>
-              )}
             </form>
           </div>
         </div>
