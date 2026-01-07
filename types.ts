@@ -6,6 +6,7 @@ export interface DeliveryLocation {
   lng: number;
   status: 'pending' | 'completed';
   distanceFromOrigin?: number;
+  order: number; // Campo para preservar a numeração original
 }
 
 export interface UserLocation {
