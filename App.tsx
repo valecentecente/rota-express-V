@@ -14,7 +14,8 @@ import {
   HomeIcon, 
   PencilSquareIcon,
   ArrowRightOnRectangleIcon,
-  SignalIcon
+  SignalIcon,
+  ExclamationCircleIcon
 } from '@heroicons/react/24/outline';
 
 const App: React.FC = () => {
@@ -36,18 +37,19 @@ const App: React.FC = () => {
   const [selectionTarget, setSelectionTarget] = useState<'stop' | 'origin' | 'edit'>('stop');
 
   const [hasKey, setHasKey] = useState(true);
+
+  // Verificação de Chave de API no Vercel
   useEffect(() => {
-    try {
-      setHasKey(!!process.env.API_KEY);
-    } catch {
-      setHasKey(false);
-    }
+    const checkKey = () => {
+      const key = process.env.API_KEY;
+      setHasKey(!!key && key !== "undefined" && key.length > 10);
+    };
+    checkKey();
   }, []);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Monitoramento contínuo de GPS
   useEffect(() => {
     const savedStops = localStorage.getItem('delivery_stops_v4');
     if (savedStops) setStops(JSON.parse(savedStops));
@@ -77,16 +79,8 @@ const App: React.FC = () => {
     }
   }, [originLocation]);
 
-  const handleManualKeyInfo = async () => {
-    if (window.aistudio?.openSelectKey) {
-      await window.aistudio.openSelectKey();
-    } else {
-      alert("Chave API não configurada. Verifique as configurações do Vercel.");
-    }
-  };
-
   const clearAllData = () => {
-    if (window.confirm("Deseja limpar todos os dados e reiniciar o app?")) {
+    if (window.confirm("Deseja limpar todos os dados salvos no seu celular?")) {
       setStops([]);
       setOriginLocation(null);
       localStorage.clear();
@@ -105,7 +99,7 @@ const App: React.FC = () => {
   const sortStops = useCallback(() => {
     const origin = originLocation || currentLocation;
     if (!origin) {
-      alert("Buscando sinal de GPS...");
+      alert("Aguardando sinal de GPS para calcular rotas...");
       return;
     }
     setStops(prev => {
@@ -120,7 +114,7 @@ const App: React.FC = () => {
     e.preventDefault();
     if (!manualInput) return;
     setIsLoading(true);
-    setLoadingMessage('Localizando...');
+    setLoadingMessage('Buscando endereço...');
     try {
       const results = await searchAddresses(manualInput, originLocation?.address);
       if (results.length > 0) {
@@ -128,10 +122,10 @@ const App: React.FC = () => {
         setShowCandidateSelection(true);
         setShowManual(false);
       } else {
-        alert("Endereço não encontrado.");
+        alert("Nenhum local encontrado com este nome.");
       }
-    } catch {
-      handleManualKeyInfo();
+    } catch (error) {
+      alert("Erro na busca. Verifique sua chave de API nas configurações do Vercel.");
     }
     setIsLoading(false);
   };
@@ -149,10 +143,10 @@ const App: React.FC = () => {
         setShowCandidateSelection(true);
         setShowEditModal(false);
       } else {
-        alert("Local não encontrado.");
+        alert("Endereço não localizado.");
       }
     } catch {
-      handleManualKeyInfo();
+      alert("Erro ao editar. Verifique sua chave de API.");
     }
     setIsLoading(false);
   };
@@ -167,7 +161,7 @@ const App: React.FC = () => {
       const base64 = canvasRef.current.toDataURL('image/jpeg').split(',')[1];
       stopCamera();
       setIsLoading(true);
-      setLoadingMessage('Lendo imagem...');
+      setLoadingMessage('Gemini lendo endereço...');
       try {
         const rawAddress = await extractAddressFromImage(base64);
         if (rawAddress) {
@@ -184,7 +178,7 @@ const App: React.FC = () => {
           setShowManual(true);
         }
       } catch {
-        handleManualKeyInfo();
+        alert("Erro ao processar foto. Verifique a API_KEY.");
       }
       setIsLoading(false);
     }
@@ -211,7 +205,7 @@ const App: React.FC = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       if (videoRef.current) videoRef.current.srcObject = stream;
     } catch {
-      alert("Acesso à câmera negado.");
+      alert("Permita o acesso à câmera nas configurações do navegador.");
       setIsCapturing(false);
     }
   };
@@ -231,20 +225,25 @@ const App: React.FC = () => {
   const isUsingGPS = !originLocation;
 
   return (
-    <div className="max-w-md mx-auto min-h-screen flex flex-col bg-[#0b1120] text-slate-200 font-sans relative shadow-[0_0_100px_rgba(0,0,0,0.8)]">
+    <div className="max-w-md mx-auto min-h-screen flex flex-col bg-[#0b1120] text-slate-200 font-sans relative">
+      
+      {/* Aviso de Configuração no Vercel */}
       {!hasKey && (
-        <div className="bg-amber-600 p-2 text-center text-[9px] font-black uppercase tracking-tighter">
-          Aviso: Chave API Pendente
+        <div className="bg-amber-500/10 border-b border-amber-500/20 p-3 flex items-center justify-center gap-2">
+          <ExclamationCircleIcon className="w-4 h-4 text-amber-500" />
+          <p className="text-[10px] font-black uppercase text-amber-500 tracking-wider">
+            API_KEY não configurada no Vercel
+          </p>
         </div>
       )}
 
       <header className="p-6 pt-10">
         <div className="bg-indigo-600/90 backdrop-blur-xl p-6 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 flex gap-2">
-            <button onClick={clearAllData} className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md">
+            <button onClick={clearAllData} title="Limpar Tudo" className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md active:scale-90 transition-transform">
               <ArrowRightOnRectangleIcon className="w-5 h-5 text-white" />
             </button>
-            <button onClick={sortStops} className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+            <button onClick={sortStops} title="Otimizar Rota" className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg active:scale-90 transition-transform">
               <ArrowPathIcon className="w-5 h-5 text-indigo-600" />
             </button>
           </div>
@@ -255,20 +254,20 @@ const App: React.FC = () => {
 
           <div 
             onClick={() => { setSelectionTarget('origin'); setShowManual(true); }} 
-            className={`p-4 rounded-2xl border flex items-center gap-4 transition-all cursor-pointer ${isUsingGPS ? 'bg-white/10 border-white/10' : 'bg-indigo-500 border-white/30'}`}
+            className={`p-4 rounded-2xl border flex items-center gap-4 transition-all cursor-pointer active:scale-[0.98] ${isUsingGPS ? 'bg-white/10 border-white/10' : 'bg-indigo-500 border-white/30'}`}
           >
             <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${isUsingGPS ? 'bg-indigo-500' : 'bg-white/20'}`}>
               <HomeIcon className="w-5 h-5 text-white" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-0.5">
-                <p className="text-[8px] font-black uppercase text-indigo-100 tracking-[0.2em]">Partida Atual</p>
+                <p className="text-[8px] font-black uppercase text-indigo-100 tracking-[0.2em]">Ponto de Partida</p>
                 <span className={`text-[7px] font-black px-1.5 py-0.5 rounded-full border ${isUsingGPS ? 'border-indigo-400 text-indigo-200' : 'border-white/40 text-white'}`}>
-                  {isUsingGPS ? 'GPS' : 'MANUAL'}
+                  {isUsingGPS ? 'GPS' : 'FIXO'}
                 </span>
               </div>
               <p className="text-xs font-bold truncate text-white">
-                {originLocation ? originLocation.address : (currentLocation ? 'Minha Localização (GPS)' : 'Buscando sinal...')}
+                {originLocation ? originLocation.address : (currentLocation ? 'Minha Localização (GPS)' : 'Buscando satélite...')}
               </p>
             </div>
             {!isUsingGPS && (
@@ -276,22 +275,26 @@ const App: React.FC = () => {
                 <SignalIcon className="w-5 h-5 text-white" />
               </button>
             )}
-            {isUsingGPS && <PencilSquareIcon className="w-4 h-4 text-white/40" />}
           </div>
         </div>
       </header>
 
       <main className="flex-1 p-6 space-y-3 overflow-y-auto pb-40">
         {stops.length === 0 ? (
-          <div className="py-20 text-center opacity-10 flex flex-col items-center">
-            <PlusIcon className="w-12 h-12 mb-2" />
-            <p className="font-black text-xs uppercase tracking-widest">Adicione Paradas</p>
+          <div className="py-20 text-center flex flex-col items-center justify-center">
+            <div className="w-20 h-20 bg-slate-900 rounded-full flex items-center justify-center mb-4 border border-slate-800 shadow-inner">
+              <MapPinIcon className="w-8 h-8 text-slate-700" />
+            </div>
+            <p className="font-black text-xs uppercase tracking-[0.2em] text-slate-600 mb-2">Sua lista está vazia</p>
+            <p className="text-[10px] text-slate-700 font-bold max-w-[200px] leading-relaxed">
+              Adicione endereços manualmente ou use a câmera para ler etiquetas.
+            </p>
           </div>
         ) : (
           stops.map((stop, i) => {
             const dist = activeOrigin ? calculateDistance(activeOrigin, stop) : null;
             return (
-              <div key={stop.id} className={`p-4 rounded-[1.5rem] border transition-all ${stop.status === 'completed' ? 'opacity-20 bg-slate-900 border-slate-800' : 'bg-[#1e293b]/50 border-slate-700/50 shadow-lg'}`}>
+              <div key={stop.id} className={`p-4 rounded-[1.5rem] border transition-all ${stop.status === 'completed' ? 'opacity-30 bg-slate-900 border-slate-800' : 'bg-[#1e293b]/50 border-slate-700/50 shadow-lg'}`}>
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 bg-indigo-600/20 text-indigo-400 rounded-xl flex items-center justify-center font-black text-xs">{i + 1}</div>
                   <div className="flex-1 min-w-0" onClick={() => stop.status === 'pending' && window.open(`https://www.google.com/maps/dir/?api=1&destination=${stop.lat},${stop.lng}`)}>
@@ -303,11 +306,11 @@ const App: React.FC = () => {
                       <CheckCircleIcon className="w-5 h-5" />
                     </button>
                     {stop.status === 'pending' && (
-                      <button onClick={(e) => { e.stopPropagation(); openEdit(stop); }} className="p-2 text-slate-600">
+                      <button onClick={(e) => { e.stopPropagation(); openEdit(stop); }} className="p-2 text-slate-600 active:text-indigo-400">
                         <PencilSquareIcon className="w-4 h-4" />
                       </button>
                     )}
-                    <button onClick={(e) => { e.stopPropagation(); setStops(prev => prev.filter(s => s.id !== stop.id)); }} className="text-slate-700 p-2">
+                    <button onClick={(e) => { e.stopPropagation(); setStops(prev => prev.filter(s => s.id !== stop.id)); }} className="text-slate-700 p-2 active:text-red-500">
                       <TrashIcon className="w-4 h-4" />
                     </button>
                   </div>
@@ -330,16 +333,14 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal Ajustado: Azul Escuro, Compacto e Mobile-First */}
       {(showManual || showEditModal) && (
         <div className="fixed inset-0 z-[110] flex items-end justify-center bg-[#0b1120]/70 backdrop-blur-md">
           <div className="bg-[#0b1120] w-full max-w-md rounded-t-[2.5rem] p-6 pb-8 border-t border-indigo-500/30 animate-slide-up shadow-[0_-15px_60px_rgba(0,0,0,1)] ring-1 ring-white/5">
-            {/* Handle visual */}
             <div className="w-12 h-1 bg-slate-800 rounded-full mx-auto mb-6 opacity-80" />
             
             <div className="flex justify-between items-center mb-6 px-2">
               <h3 className="font-black text-indigo-400 uppercase text-[11px] tracking-[0.2em]">
-                {showEditModal ? 'Editar Local' : (selectionTarget === 'origin' ? 'Ponto Inicial' : 'Novo Destino')}
+                {showEditModal ? 'Editar Local' : (selectionTarget === 'origin' ? 'Definir Partida' : 'Novo Destino')}
               </h3>
               <button 
                 onClick={() => { setShowManual(false); setShowEditModal(false); }} 
@@ -354,7 +355,7 @@ const App: React.FC = () => {
                  <input 
                   autoFocus 
                   type="text" 
-                  placeholder="Endereço Completo..." 
+                  placeholder="Rua, Número, Cidade..." 
                   className="w-full p-4 pl-12 bg-slate-900/60 rounded-2xl outline-none border border-slate-800 text-sm font-bold text-white focus:border-indigo-600/50 transition-all placeholder:text-slate-700" 
                   value={showEditModal ? editInput : manualInput} 
                   onChange={e => showEditModal ? setEditInput(e.target.value) : setManualInput(e.target.value)} 
@@ -376,7 +377,7 @@ const App: React.FC = () => {
                   onClick={() => { setOriginLocation(null); setShowManual(false); }} 
                   className="w-full py-2 text-indigo-400/60 text-[10px] font-black uppercase tracking-widest hover:text-indigo-400 transition-all"
                 >
-                  Restaurar Localização GPS
+                  Voltar para GPS Automático
                 </button>
               )}
             </form>
@@ -388,7 +389,7 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[120] flex items-end justify-center bg-black/80 backdrop-blur-xl">
           <div className="bg-[#0b1120] w-full max-w-md rounded-t-[2.5rem] p-6 pb-10 max-h-[60vh] overflow-y-auto animate-slide-up border-t border-indigo-900/50">
             <div className="w-12 h-1 bg-slate-800 rounded-full mx-auto mb-6" />
-            <h3 className="font-black text-slate-400 mb-6 uppercase tracking-widest text-[10px] text-center opacity-60">Escolha a Localização</h3>
+            <h3 className="font-black text-slate-400 mb-6 uppercase tracking-widest text-[10px] text-center opacity-60">Confirme o Endereço</h3>
             <div className="space-y-3">
               {candidates.map((c, i) => (
                 <button 
@@ -445,4 +446,4 @@ const App: React.FC = () => {
 };
 
 export default App;
-// Checkpoint de Segurança: 2024-05-21 13:10 - Estabilidade Garantida V4.7 - Modal Azul Escuro Compacto
+// Checkpoint de Segurança: 2024-05-21 13:45 - Estabilidade Garantida V4.8 - Verificação de Chave Vercel e Estado Vazio
