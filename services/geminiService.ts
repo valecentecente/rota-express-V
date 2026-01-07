@@ -7,7 +7,6 @@ export interface AddressCandidate {
   lng: number;
 }
 
-// Helper para obter a chave de forma segura
 const getApiKey = (): string | undefined => {
   try {
     if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
@@ -37,12 +36,12 @@ export const extractAddressFromImage = async (base64Image: string) => {
             },
           },
           {
-            text: "Extraia o endereço desta imagem. Retorne APENAS o texto do endereço.",
+            text: "Você é um scanner de etiquetas de entrega. Ignore nomes de pessoas e números de telefone. Extraia APENAS o endereço completo (Rua, Número, Bairro, Cidade). Se houver um CEP, inclua-o. Retorne apenas o texto do endereço limpo, sem explicações.",
           },
         ],
       },
     });
-    return response.text;
+    return response.text?.trim() || null;
   } catch (error) {
     console.error("Erro OCR:", error);
     return null;
@@ -56,8 +55,8 @@ export const searchAddresses = async (query: string, contextAddress?: string): P
   const ai = new GoogleGenAI({ apiKey });
 
   try {
-    const prompt = `Localize no Google Maps: "${query}". ${contextAddress ? `Perto de: ${contextAddress}.` : ""} Forneça endereço oficial e coordenadas. Responda APENAS:
-1. [Endereço], LAT: [valor], LNG: [valor]`;
+    const prompt = `Localize com precisão geográfica o endereço: "${query}". ${contextAddress ? `Priorize resultados próximos a: ${contextAddress}.` : ""} Forneça o endereço formatado e as coordenadas GPS exatas. Responda APENAS:
+1. [Endereço Formatado], LAT: [valor], LNG: [valor]`;
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
