@@ -15,4 +15,4 @@ root.render(
   </React.StrictMode>
 );
 
-// Checkpoint de Segurança: 2024-05-24 22:30 - Estabilidade Garantida V10.0 - Correção PWA Android
+// Checkpoint de Segurança: 2024-05-24 23:55 - Estabilidade Garantida V12.0 - Origem Híbrida GPS/Manual

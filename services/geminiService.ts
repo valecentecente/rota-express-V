@@ -7,23 +7,9 @@ export interface AddressCandidate {
   lng: number;
 }
 
-const getApiKey = (): string | undefined => {
-  try {
-    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-      return process.env.API_KEY;
-    }
-  } catch (e) {
-    console.warn("Erro ao acessar variáveis de ambiente");
-  }
-  return undefined;
-};
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const extractAddressFromImage = async (base64Image: string) => {
-  const apiKey = getApiKey();
-  if (!apiKey) return null;
-  
-  const ai = new GoogleGenAI({ apiKey });
-  
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
@@ -36,12 +22,13 @@ export const extractAddressFromImage = async (base64Image: string) => {
             },
           },
           {
-            text: "Você é um scanner de etiquetas de entrega. Ignore nomes de pessoas e números de telefone. Extraia APENAS o endereço completo (Rua, Número, Bairro, Cidade). Se houver um CEP, inclua-o. Retorne apenas o texto do endereço limpo, sem explicações.",
+            text: "Aja como um scanner de elite para logística brasileira. Analise esta etiqueta de envio (pode ser Mercado Livre, Shopee ou Correios). Localize o endereço de DESTINO. Ignore nomes, CPFs, e-mails e observações. Foque em: Logradouro (Rua/Av), Número, Bairro, Cidade, Estado e CEP. Retorne APENAS o endereço formatado em uma linha. Se houver vários textos, escolha o que parece ser o destino principal. Se não encontrar nada que pareça um endereço, responda apenas: 'ERRO'.",
           },
         ],
       },
     });
-    return response.text?.trim() || null;
+    const result = response.text?.trim() || "";
+    return (result === "ERRO" || result.length < 5) ? null : result;
   } catch (error) {
     console.error("Erro OCR:", error);
     return null;
@@ -49,14 +36,11 @@ export const extractAddressFromImage = async (base64Image: string) => {
 };
 
 export const searchAddresses = async (query: string, contextAddress?: string): Promise<AddressCandidate[]> => {
-  const apiKey = getApiKey();
-  if (!apiKey) throw new Error("API_KEY_MISSING");
-
-  const ai = new GoogleGenAI({ apiKey });
-
   try {
-    const prompt = `Localize com precisão geográfica o endereço: "${query}". ${contextAddress ? `Priorize resultados próximos a: ${contextAddress}.` : ""} Forneça o endereço formatado e as coordenadas GPS exatas. Responda APENAS:
-1. [Endereço Formatado], LAT: [valor], LNG: [valor]`;
+    const prompt = `Converta este texto de etiqueta em coordenadas geográficas reais: "${query}". 
+    ${contextAddress ? `Priorize resultados próximos a: ${contextAddress}.` : ""}
+    O formato de resposta deve ser estritamente: 
+    [Endereço Completo Oficial], LAT: [latitude], LNG: [longitude]`;
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -68,25 +52,22 @@ export const searchAddresses = async (query: string, contextAddress?: string): P
 
     const text = response.text || "";
     const candidates: AddressCandidate[] = [];
-    const lines = text.split('\n');
+    
+    const latMatch = text.match(/LAT:\s*(-?\d+\.\d+)/i);
+    const lngMatch = text.match(/LNG:\s*(-?\d+\.\d+)/i);
+    const addressPart = text.split(/,?\s*LAT:/i)[0].replace(/^\d+\.\s*/, '').trim();
 
-    lines.forEach(line => {
-      const latMatch = line.match(/LAT:\s*(-?\d+\.\d+)/i);
-      const lngMatch = line.match(/LNG:\s*(-?\d+\.\d+)/i);
-      const addressPart = line.split(/,?\s*LAT:/i)[0].replace(/^\d+\.\s*/, '').trim();
-
-      if (latMatch && lngMatch && addressPart) {
-        candidates.push({
-          address: addressPart,
-          lat: parseFloat(latMatch[1]),
-          lng: parseFloat(lngMatch[1])
-        });
-      }
-    });
+    if (latMatch && lngMatch && addressPart) {
+      candidates.push({
+        address: addressPart,
+        lat: parseFloat(latMatch[1]),
+        lng: parseFloat(lngMatch[1])
+      });
+    }
 
     return candidates;
   } catch (error: any) {
-    console.error("Erro na busca:", error);
+    console.error("Erro na busca de endereço:", error);
     throw error;
   }
 };
