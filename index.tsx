@@ -15,4 +15,4 @@ root.render(
   </React.StrictMode>
 );
 
-// Checkpoint de Segurança: 2024-05-25 00:15 - Estabilidade Garantida V12.1 - Correção Busca Vercel (Grounding ToolConfig)
+// Checkpoint de Segurança: 2024-05-24 23:55 - Estabilidade Garantida V12.0 - Origem Híbrida GPS/Manual
