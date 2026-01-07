@@ -15,7 +15,8 @@ import {
   PencilSquareIcon,
   ArrowRightOnRectangleIcon,
   SignalIcon,
-  SparklesIcon
+  SparklesIcon,
+  ArrowDownTrayIcon
 } from '@heroicons/react/24/outline';
 
 const App: React.FC = () => {
@@ -28,27 +29,33 @@ const App: React.FC = () => {
   const [manualInput, setManualInput] = useState('');
   const [showManual, setShowManual] = useState(false);
   
+  // PWA Install State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBtn, setShowInstallBtn] = useState(false);
+
   const [editingStopId, setEditingStopId] = useState<string | null>(null);
-  const [editInput, setEditInput] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
 
   const [candidates, setCandidates] = useState<AddressCandidate[]>([]);
   const [showCandidateSelection, setShowCandidateSelection] = useState(false);
   const [selectionTarget, setSelectionTarget] = useState<'stop' | 'origin' | 'edit'>('stop');
 
-  const [hasKey, setHasKey] = useState(true);
-  useEffect(() => {
-    try {
-      setHasKey(!!process.env.API_KEY);
-    } catch {
-      setHasKey(false);
-    }
-  }, []);
-
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    // Listener para o evento de instalação do PWA
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallBtn(true);
+    });
+
+    // Detectar se já está rodando como App instalado
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setShowInstallBtn(false);
+    }
+
     const savedStops = localStorage.getItem('delivery_stops_v8');
     if (savedStops) setStops(JSON.parse(savedStops));
 
@@ -64,6 +71,16 @@ const App: React.FC = () => {
     );
     return () => navigator.geolocation.clearWatch(watchId);
   }, []);
+
+  const installApp = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setShowInstallBtn(false);
+    }
+    setDeferredPrompt(null);
+  };
 
   useEffect(() => {
     localStorage.setItem('delivery_stops_v8', JSON.stringify(stops));
@@ -144,21 +161,16 @@ const App: React.FC = () => {
           const results = await searchAddresses(rawAddress, originLocation?.address);
           
           if (results.length === 1) {
-            // SUCESSO TOTAL: Adiciona direto e não pergunta nada
             addStopDirectly(results[0]);
-            // Feedback breve de sucesso seria bom aqui, mas o loader já some
           } else if (results.length > 1) {
-            // Ambiguidade: Mostra opções
             setCandidates(results);
             setSelectionTarget('stop');
             setShowCandidateSelection(true);
           } else {
-            // Falhou em localizar: Abre manual com o que leu
             setManualInput(rawAddress);
             setShowManual(true);
           }
         } else {
-          // Não leu nada: Abre manual limpo
           setShowManual(true);
         }
       } catch (err) {
@@ -233,6 +245,16 @@ const App: React.FC = () => {
 
   return (
     <div className="max-w-md mx-auto min-h-screen flex flex-col bg-[#0b1120] text-slate-200 font-sans relative shadow-2xl">
+      
+      {showInstallBtn && (
+        <div className="bg-indigo-600/20 backdrop-blur-md p-2 flex justify-between items-center px-6 border-b border-indigo-500/30 z-[60]">
+          <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300">Instale o App na Home</p>
+          <button onClick={installApp} className="bg-indigo-600 px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1">
+            <ArrowDownTrayIcon className="w-3 h-3"/> Instalar
+          </button>
+        </div>
+      )}
+
       <header className="p-6 pt-10">
         <div className="bg-indigo-600 p-6 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 flex gap-2">
@@ -354,26 +376,16 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[130] bg-black flex flex-col max-w-md mx-auto overflow-hidden">
           <div className="flex-1 relative">
             <video ref={videoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
-            
-            {/* Camada de Scanner */}
             <div className="absolute inset-0 flex items-center justify-center p-8 pointer-events-none">
               <div className="w-full aspect-[4/3] border-2 border-white/20 rounded-3xl relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-full bg-indigo-500/5"></div>
-                {/* Linha de Laser Animada */}
                 <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,1)] animate-scanner-line"></div>
-                {/* Cantos do Scanner */}
                 <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-indigo-500 rounded-tl-lg"></div>
                 <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-indigo-500 rounded-tr-lg"></div>
                 <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-indigo-500 rounded-bl-lg"></div>
                 <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-indigo-500 rounded-br-lg"></div>
               </div>
             </div>
-            
-            <div className="absolute top-10 left-0 right-0 text-center">
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60 bg-black/40 inline-block px-4 py-1 rounded-full backdrop-blur-md">Aponte para o Endereço na Etiqueta</p>
-            </div>
           </div>
-
           <div className="p-12 flex justify-between items-center bg-black/80 border-t border-white/5">
              <button onClick={stopCamera} className="text-slate-500 font-black text-[10px] tracking-widest uppercase">Voltar</button>
              <button onClick={handlePhotoCapture} className="w-20 h-20 bg-white rounded-full border-[6px] border-indigo-600 shadow-2xl active:scale-90 transition-transform flex items-center justify-center">
@@ -390,7 +402,6 @@ const App: React.FC = () => {
           <div className="relative">
             <div className="w-16 h-16 border-2 border-indigo-500/10 rounded-full"></div>
             <div className="w-16 h-16 border-t-2 border-indigo-500 rounded-full animate-spin absolute inset-0"></div>
-            <SparklesIcon className="w-6 h-6 text-indigo-500 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
           </div>
           <p className="font-black text-[10px] tracking-[0.4em] uppercase text-indigo-400 ml-1">{loadingMessage}</p>
         </div>
@@ -406,7 +417,7 @@ const App: React.FC = () => {
         .animate-scanner-line {
           animation: scanner-line 2s infinite ease-in-out;
         }
-        body { background-color: #000; user-select: none; -webkit-tap-highlight-color: transparent; }
+        body { background-color: #0b1120; user-select: none; -webkit-tap-highlight-color: transparent; }
         ::-webkit-scrollbar { display: none; }
       `}</style>
     </div>
