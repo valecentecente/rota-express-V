@@ -128,7 +128,7 @@ const App: React.FC = () => {
         const rawAddress = await extractAddressFromImage(base64);
         if (rawAddress) {
           setLoadingMessage('Localizando no mapa...');
-          const results = await searchAddresses(rawAddress, originLocation?.address || (currentLocation ? `lat: ${currentLocation.lat}, lng: ${currentLocation.lng}` : undefined));
+          const results = await searchAddresses(rawAddress, currentLocation || undefined);
           if (results.length === 1) {
             if (selectionTarget === 'origin') {
               setOriginLocation(results[0]);
@@ -143,11 +143,12 @@ const App: React.FC = () => {
             setShowManual(true);
           }
         } else {
-          alert("Não foi possível ler o endereço. Tente digitar ou tirar outra foto com mais luz.");
+          alert("Não foi possível ler o endereço. Tente digitar ou tirar outra foto.");
           setShowManual(true);
         }
       } catch (err) {
         console.error(err);
+        alert("Erro ao buscar endereço no servidor. Tente ser mais específico no texto.");
         setShowManual(true);
       }
       setIsLoading(false);
@@ -167,7 +168,7 @@ const App: React.FC = () => {
     };
     navigator.mediaDevices.getUserMedia(constraints)
       .then(stream => { if (videoRef.current) videoRef.current.srcObject = stream; })
-      .catch(() => { alert("Erro ao abrir câmera."); setIsCapturing(false); });
+      .catch(() => { alert("Erro ao abrir câmera. Verifique as permissões do navegador."); setIsCapturing(false); });
   };
 
   const stopCamera = () => {
@@ -176,7 +177,7 @@ const App: React.FC = () => {
   };
 
   const useCurrentAsOrigin = () => {
-    setOriginLocation(null); // Ao setar null, o sistema usa o currentLocation automaticamente
+    setOriginLocation(null); 
     setShowManual(false);
   };
 
@@ -185,15 +186,12 @@ const App: React.FC = () => {
       
       {showInstallBtn && (
         <button onClick={async () => { deferredPrompt.prompt(); setShowInstallBtn(false); }} className="bg-indigo-600 p-3 text-center text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2">
-          <ArrowDownTrayIcon className="w-4 h-4"/> Instalar no Celular
+          <ArrowDownTrayIcon className="w-4 h-4"/> Instalar App
         </button>
       )}
 
       <header className="p-6 pb-0">
         <div className="bg-indigo-600 p-6 rounded-[2.5rem] shadow-2xl relative overflow-hidden">
-          {/* Luzes de fundo */}
-          <div className="absolute -top-10 -left-10 w-32 h-32 bg-white/10 blur-3xl rounded-full"></div>
-          
           <div className="absolute top-4 right-4 flex gap-2">
             <button onClick={() => setStops([])} className="p-2 bg-red-500 rounded-full shadow-lg active:scale-90 transition-transform"><TrashIcon className="w-5 h-5"/></button>
             <button onClick={sortStops} className="p-2 bg-white rounded-full shadow-lg active:scale-90 transition-transform"><ArrowPathIcon className="w-5 h-5 text-indigo-600"/></button>
@@ -225,7 +223,7 @@ const App: React.FC = () => {
         {stops.length === 0 ? (
           <div className="h-64 flex flex-col items-center justify-center opacity-20 text-center">
             <SparklesIcon className="w-16 h-16 mb-4" />
-            <p className="font-black text-xs uppercase tracking-widest">Escaneie sua primeira entrega</p>
+            <p className="font-black text-xs uppercase tracking-widest">Escaneie uma etiqueta para começar</p>
           </div>
         ) : (
           stops.map((stop) => (
@@ -259,7 +257,7 @@ const App: React.FC = () => {
           </button>
           <button onClick={() => startCamera('stop')} className="flex-1 bg-indigo-600 rounded-3xl flex items-center justify-center gap-3 font-black text-white shadow-2xl active:scale-95 transition-all">
             <CameraIcon className="w-6 h-6" />
-            <span className="uppercase tracking-widest text-xs">Escanear Entrega</span>
+            <span className="uppercase tracking-widest text-xs">Escanear Etiqueta</span>
           </button>
         </div>
       </div>
@@ -273,7 +271,7 @@ const App: React.FC = () => {
                </h3>
                {selectionTarget === 'origin' && (
                  <button onClick={useCurrentAsOrigin} className="text-[10px] font-black uppercase text-green-400 flex items-center gap-1 bg-green-400/10 px-3 py-2 rounded-full border border-green-400/20">
-                   <SignalIcon className="w-3 h-3" /> Usar Meu Local
+                   <SignalIcon className="w-3 h-3" /> Usar Meu GPS
                  </button>
                )}
             </div>
@@ -286,21 +284,17 @@ const App: React.FC = () => {
                  if (!manualInput) return;
                  setIsLoading(true);
                  try {
-                   const res = await searchAddresses(manualInput, originLocation?.address || (currentLocation ? `${currentLocation.lat}, ${currentLocation.lng}` : undefined));
+                   const res = await searchAddresses(manualInput, currentLocation || undefined);
                    if (res.length > 0) {
                      if (selectionTarget === 'origin') setOriginLocation(res[0]);
                      else addStopDirectly(res[0]);
                      setShowManual(false);
                      setManualInput('');
-                   } else alert("Endereço não localizado. Tente ser mais específico.");
-                 } catch (e) { alert("Erro de conexão."); }
+                   } else alert("Endereço não localizado. Tente incluir a cidade ou bairro.");
+                 } catch (e) { alert("Erro de conexão com o servidor de busca."); }
                  setIsLoading(false);
                }} className="flex-[2] bg-indigo-600 py-4 rounded-2xl font-black text-xs uppercase shadow-xl active:scale-95 transition-transform">Confirmar</button>
             </div>
-            
-            <button onClick={() => { setShowManual(false); startCamera(selectionTarget); }} className="w-full mt-4 py-4 rounded-2xl border border-dashed border-indigo-500/30 text-indigo-400 font-black text-xs uppercase flex items-center justify-center gap-2">
-              <CameraIcon className="w-4 h-4" /> Tentar Tirar Foto
-            </button>
           </div>
         </div>
       )}
@@ -308,7 +302,7 @@ const App: React.FC = () => {
       {showCandidateSelection && (
         <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/80 backdrop-blur-md p-4">
           <div className="bg-[#1e293b] w-full max-w-md rounded-[2.5rem] p-8 max-h-[80vh] overflow-y-auto">
-            <h3 className="text-center font-black text-xs uppercase tracking-widest mb-6">Qual endereço da etiqueta?</h3>
+            <h3 className="text-center font-black text-xs uppercase tracking-widest mb-6">Selecione o endereço correto</h3>
             <div className="space-y-3">
               {candidates.map((c, i) => (
                 <button key={i} onClick={() => { 
@@ -330,9 +324,9 @@ const App: React.FC = () => {
           <div className="flex-1 relative">
             <video ref={videoRef} autoPlay playsInline className="absolute inset-0 w-full h-full object-cover" />
             <div className="absolute inset-0 border-[40px] border-black/60 flex items-center justify-center">
-              <div className="w-full aspect-[4/3] border-2 border-indigo-500/50 rounded-2xl relative">
+              <div className="w-full aspect-[4/3] border-2 border-indigo-500/50 rounded-2xl relative shadow-[0_0_50px_rgba(79,70,229,0.3)]">
                 <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500 shadow-[0_0_20px_#6366f1] animate-scan-fast"></div>
-                <div className="absolute -top-10 left-0 w-full text-center text-[10px] font-black uppercase text-indigo-400 bg-indigo-400/10 py-1 rounded-t-lg">Enquadre o Endereço</div>
+                <div className="absolute -top-10 left-0 w-full text-center text-[10px] font-black uppercase text-indigo-400">Posicione a etiqueta aqui</div>
               </div>
             </div>
           </div>
@@ -372,7 +366,6 @@ const App: React.FC = () => {
         .animate-scan-fast { animation: scan-fast 1.5s infinite linear; }
         .animate-slide-up { animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
         body { overscroll-behavior: none; }
-        * { -webkit-tap-highlight-color: transparent; }
       `}</style>
     </div>
   );
