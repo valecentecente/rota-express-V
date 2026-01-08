@@ -5,7 +5,8 @@ export interface DeliveryLocation {
   lat: number;
   lng: number;
   status: 'pending' | 'completed';
-  order: number;
+  distanceFromOrigin?: number;
+  order: number; // Numeração original da rota
 }
 
 export interface UserLocation {

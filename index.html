@@ -6,26 +6,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Rota Express</title>
     
-    <!-- Tailwind via CDN para evitar problemas de build -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><defs><linearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'><stop offset='0%25' style='stop-color:%236366f1;stop-opacity:1' /><stop offset='100%25' style='stop-color:%234f46e5;stop-opacity:1' /></linearGradient></defs><circle cx='50' cy='50' r='48' fill='url(%23g)'/><path d='M50 25c-9.9 0-18 8.1-18 18 0 13.5 18 32 18 32s18-18.5 18-32c0-9.9-8.1-18-18-18zm0 25c-3.9 0-7-3.1-7-7s3.1-7 7-7 7 3.1 7 7-3.1 7-7 7z' fill='white'/></svg>">
     
-    <script type="importmap">
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="./manifest.json">
+    <meta name="theme-color" content="#0b1120">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Rota Express">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+<script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@^19.2.3",
     "react/": "https://esm.sh/react@^19.2.3/",
-    "react-dom": "https://esm.sh/react-dom@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3",
     "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
-    "@heroicons/react/24/outline": "https://esm.sh/@heroicons/react@^2.2.0/24/outline",
-    "@heroicons/react/": "https://esm.sh/@heroicons/react@^2.2.0/"
+    "@heroicons/react/": "https://esm.sh/@heroicons/react@^2.2.0/",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
   }
 }
 </script>
 </head>
-<body class="bg-[#0b1120] text-slate-100">
+<body class="bg-[#0b1120] text-slate-100 antialiased overflow-x-hidden">
     <div id="root"></div>
-    <!-- Carregamento relativo do entry point -->
+    
     <script type="module" src="./index.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW error:', err));
+        });
+      }
+    </script>
 </body>
 </html>
